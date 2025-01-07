@@ -6,6 +6,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.authentication import TokenAuthentication
 from rest_framework import filters
+from rest_framework.authtoken.serializers import AuthTokenSerializer
+from rest_framework.authtoken.views import ObtainAuthToken
 
 from . import serializers
 from . import models
@@ -117,3 +119,20 @@ class UserProfileViewSet(viewsets.ModelViewSet):
     permission_classes = (permissions.UpdateOwnProfile,)
     filter_backends = (filters.SearchFilter,)
     search_fields = ('name', 'email',) #fields to filter by
+
+
+class LoginViewSet(viewsets.ViewSet):
+    """Checks email and password and returns an auth token"""
+
+    serializer_class = AuthTokenSerializer
+    serializer_class = ObtainAuthToken.serializer_class
+
+    def create(self, request, *args, **kwargs):
+        """Use the ObtainAuthToken APIView to validate and create a token."""
+
+        obtain_auth_view = ObtainAuthToken.as_view()
+        # Convert DRF request to Django HttpRequest
+        django_request = request._request
+        # Call ObtainAuthToken with the converted request
+        response = obtain_auth_view(django_request, *args, **kwargs)
+        return Response(response.data, status=response.status_code)
