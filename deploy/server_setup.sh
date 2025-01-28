@@ -16,11 +16,16 @@ echo "Installing dependencies..."
 apt-get update
 apt-get install -y python3-dev python3-venv sqlite3 python3-pip supervisor nginx git build-essential libssl-dev libpcre3 libpcre3-dev
 
+echo "Cloning or updating project repository..."
 mkdir -p $PROJECT_BASE_PATH
-git clone $PROJECT_GIT_URL $PROJECT_BASE_PATH/profiles-rest-api
-
-mkdir -p $VIRTUALENV_BASE_PATH
-python3 -m venv $VIRTUALENV_BASE_PATH/profiles_api
+if [ ! -d "$PROJECT_BASE_PATH/profiles-rest-api/.git" ]; then
+    git clone $PROJECT_GIT_URL $PROJECT_BASE_PATH/profiles-rest-api
+else
+    echo "Repository already exists. Pulling latest changes..."
+    cd $PROJECT_BASE_PATH/profiles-rest-api
+    git reset --hard  # Optional: Resets any local changes
+    git pull
+fi
 
 $VIRTUALENV_BASE_PATH/profiles_api/bin/pip install -r $PROJECT_BASE_PATH/profiles-rest-api/requirements.txt
 
