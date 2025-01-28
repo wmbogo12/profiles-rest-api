@@ -34,6 +34,7 @@ if [ ! -d "$VIRTUALENV_BASE_PATH/profiles_api" ]; then
     python3 -m venv $VIRTUALENV_BASE_PATH/profiles_api
 fi
 
+$VIRTUALENV_BASE_PATH/profiles_api/bin/pip install --upgrade uwsgi
 $VIRTUALENV_BASE_PATH/profiles_api/bin/pip install --upgrade pip setuptools wheel
 $VIRTUALENV_BASE_PATH/profiles_api/bin/pip install -r $PROJECT_BASE_PATH/profiles-rest-api/requirements.txt
 
