@@ -9,7 +9,9 @@ PROJECT_BASE_PATH='/usr/local/apps/profiles-rest-api'
 # Update package list and install dependencies
 echo "Installing dependencies..."
 apt-get update
-apt-get install -y python3-dev python3-venv sqlite3 python3-pip supervisor nginx git
+apt-get install -y python3-dev python3-venv sqlite3 python3-pip supervisor nginx git \
+                   build-essential libssl-dev libffi-dev python3-setuptools python3-wheel \
+                   libpcre3 libpcre3-dev
 
 # Create project directory if it doesn't exist
 if [ ! -d "$PROJECT_BASE_PATH" ]; then
@@ -27,10 +29,13 @@ if [ ! -d "$PROJECT_BASE_PATH/env" ]; then
     python3 -m venv $PROJECT_BASE_PATH/env
 fi
 
-# Install required Python packages
-$PROJECT_BASE_PATH/env/bin/pip install --upgrade pip
+# Upgrade pip and install dependencies
+$PROJECT_BASE_PATH/env/bin/pip install --upgrade pip setuptools wheel
 $PROJECT_BASE_PATH/env/bin/pip install -r $PROJECT_BASE_PATH/requirements.txt
-$PROJECT_BASE_PATH/env/bin/pip install uwsgi==2.0.18
+
+# Install uWSGI with C compiler support
+echo "Installing uWSGI..."
+CFLAGS="-Wno-error=implicit-function-declaration" $PROJECT_BASE_PATH/env/bin/pip install uwsgi
 
 # Run migrations and collect static files
 cd $PROJECT_BASE_PATH
