@@ -6,27 +6,48 @@
 # backwards compatibility). Please don't change it unless you know what
 # you're doing.
 Vagrant.configure("2") do |config|
- # The most common configuration options are documented and commented below.
- # For a complete reference, please see the online documentation at
- # https://docs.vagrantup.com.
+  # The most common configuration options are documented and commented below.
+  # For a complete reference, please see the online documentation at
+  # https://docs.vagrantup.com.
 
- # Every Vagrant development environment requires a box. You can search for
- # boxes at https://vagrantcloud.com/search.
- config.vm.box = "ubuntu/bionic64"
- config.vm.box_version = "~> 20191107.0.0"
+  # Every Vagrant development environment requires a box. You can search for
+  # boxes at https://atlas.hashicorp.com/search.
 
- config.vm.network "forwarded_port", guest: 8000, host: 8000
+  # Specify the base box
+  config.vm.box = "ubuntu/xenial64"
 
- config.vm.provision "shell", inline: <<-SHELL
-   systemctl disable apt-daily.service
-   systemctl disable apt-daily.timer
+  # Forward port 8080
+  config.vm.network "forwarded_port", host_ip: "127.0.0.1", guest: 8080, host: 8080
 
-   sudo apt-get update
-   sudo apt-get install -y python3-venv zip
-   touch /home/vagrant/.bash_aliases
-   if ! grep -q PYTHON_ALIAS_ADDED /home/vagrant/.bash_aliases; then
-     echo "# PYTHON_ALIAS_ADDED" >> /home/vagrant/.bash_aliases
-     echo "alias python='python3'" >> /home/vagrant/.bash_aliases
-   fi
- SHELL
+  # Provision the VM
+  config.vm.provision "shell", inline: <<-SHELL
+    # Update and upgrade the server packages
+    sudo apt-get update
+    sudo apt-get -y upgrade
+
+    # Set Ubuntu Language
+    sudo locale-gen en_GB.UTF-8
+
+    # Install Python3, SQLite, and pip3
+    sudo apt-get install -y python3-dev sqlite python3-pip
+
+    # Install pip 20.3.4 (the last version compatible with Python 3.5)
+    sudo python3 -m pip install pip==20.3.4
+
+    # Install pbr (missing dependency for virtualenvwrapper)
+    sudo python3 -m pip install pbr
+
+    # Install virtualenvwrapper (this will install the latest compatible version)
+    sudo python3 -m pip install virtualenvwrapper
+
+    # Add virtualenvwrapper configuration to bashrc if not already added
+    if ! grep -q VIRTUALENV_ALREADY_ADDED /home/vagrant/.bashrc; then
+      cat <<EOF >> /home/vagrant/.bashrc
+# VIRTUALENV_ALREADY_ADDED
+export WORKON_HOME=~/.virtualenvs
+export PROJECT_HOME=/vagrant
+source $(which virtualenvwrapper.sh)
+EOF
+    fi
+  SHELL
 end
