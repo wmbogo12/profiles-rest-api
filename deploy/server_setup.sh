@@ -33,9 +33,13 @@ fi
 $PROJECT_BASE_PATH/env/bin/pip install --upgrade pip setuptools wheel
 $PROJECT_BASE_PATH/env/bin/pip install -r $PROJECT_BASE_PATH/requirements.txt
 
-# Install uWSGI with C compiler support
+# Workaround for uWSGI error
 echo "Installing uWSGI..."
-CFLAGS="-Wno-error=implicit-function-declaration" $PROJECT_BASE_PATH/env/bin/pip install uwsgi
+CFLAGS="-Wno-error=implicit-function-declaration" \
+$PROJECT_BASE_PATH/env/bin/pip install --no-binary :all: uwsgi || true
+
+# Install the package dependencies
+$PROJECT_BASE_PATH/env/bin/pip install uwsgi
 
 # Run migrations and collect static files
 cd $PROJECT_BASE_PATH
