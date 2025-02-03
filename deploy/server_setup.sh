@@ -33,13 +33,12 @@ fi
 $PROJECT_BASE_PATH/env/bin/pip install --upgrade pip setuptools wheel
 $PROJECT_BASE_PATH/env/bin/pip install -r $PROJECT_BASE_PATH/requirements.txt
 
-# Workaround for uWSGI error
-echo "Installing uWSGI..."
-CFLAGS="-Wno-error=implicit-function-declaration" \
-$PROJECT_BASE_PATH/env/bin/pip install --no-binary :all: uwsgi || true
+# Uninstall any existing uwsgi installations before trying a specific version
+$PROJECT_BASE_PATH/env/bin/pip uninstall -y uwsgi
 
-# Install the package dependencies
-$PROJECT_BASE_PATH/env/bin/pip install uwsgi
+# Install a specific, known working version of uWSGI (version 2.0.20.1)
+echo "Installing uWSGI version 2.0.20.1..."
+$PROJECT_BASE_PATH/env/bin/pip install uwsgi==2.0.20.1
 
 # Run migrations and collect static files
 cd $PROJECT_BASE_PATH
