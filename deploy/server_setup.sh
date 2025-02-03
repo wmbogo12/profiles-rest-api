@@ -2,51 +2,44 @@
 
 set -e
 
-# Project configurations
+# Project repository URL
 PROJECT_GIT_URL='https://github.com/wmbogo12/profiles-rest-api.git'
-PROJECT_BASE_PATH='/usr/local/apps'
-VIRTUALENV_BASE_PATH='/usr/local/virtualenvs'
+PROJECT_BASE_PATH='/usr/local/apps/profiles-rest-api'
 
-# Set Ubuntu Language
-echo "Setting system locale..."
-sudo locale-gen en_GB.UTF-8
+# Update package list and install dependencies
+echo "Installing dependencies..."
+apt-get update
+apt-get install -y python3-dev python3-venv sqlite python-pip supervisor nginx git
 
-# Install Python, SQLite, and pip
-echo "Installing system dependencies..."
-DEBIAN_FRONTEND=noninteractive apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y python3-dev python3-venv sqlite3 python3-pip supervisor nginx git build-essential libssl-dev libpcre3 libpcre3-dev
-
-# Clone the project repository
-echo "Cloning project repository..."
-mkdir -p $PROJECT_BASE_PATH
-if [ ! -d "$PROJECT_BASE_PATH/profiles-rest-api" ]; then
-    git clone $PROJECT_GIT_URL $PROJECT_BASE_PATH/profiles-rest-api
+# Create project directory if it doesn't exist
+if [ ! -d "$PROJECT_BASE_PATH" ]; then
+    mkdir -p $PROJECT_BASE_PATH
+    git clone $PROJECT_GIT_URL $PROJECT_BASE_PATH
 else
-    echo "Project already cloned. Pulling the latest changes..."
-    cd $PROJECT_BASE_PATH/profiles-rest-api
+    echo "Project directory already exists. Pulling latest changes..."
+    cd $PROJECT_BASE_PATH
     git pull
 fi
 
 # Create and activate virtual environment
-echo "Setting up virtual environment..."
-mkdir -p $VIRTUALENV_BASE_PATH
-if [ ! -d "$VIRTUALENV_BASE_PATH/profiles_api" ]; then
-    python3 -m venv $VIRTUALENV_BASE_PATH/profiles_api
+if [ ! -d "$PROJECT_BASE_PATH/env" ]; then
+    mkdir -p $PROJECT_BASE_PATH/env
+    python3 -m venv $PROJECT_BASE_PATH/env
 fi
 
-$VIRTUALENV_BASE_PATH/profiles_api/bin/pip install --upgrade uwsgi
-$VIRTUALENV_BASE_PATH/profiles_api/bin/pip install --upgrade pip setuptools wheel
-$VIRTUALENV_BASE_PATH/profiles_api/bin/pip install -r $PROJECT_BASE_PATH/profiles-rest-api/requirements.txt
+# Install required Python packages
+$PROJECT_BASE_PATH/env/bin/pip install --upgrade pip
+$PROJECT_BASE_PATH/env/bin/pip install -r $PROJECT_BASE_PATH/requirements.txt
+$PROJECT_BASE_PATH/env/bin/pip install uwsgi==2.0.18
 
-# Run Django migrations
-echo "Running database migrations..."
-cd $PROJECT_BASE_PATH/profiles-rest-api/src
-$VIRTUALENV_BASE_PATH/profiles_api/bin/python manage.py migrate
+# Run migrations and collect static files
+cd $PROJECT_BASE_PATH
+$PROJECT_BASE_PATH/env/bin/python manage.py migrate
+$PROJECT_BASE_PATH/env/bin/python manage.py collectstatic --noinput
 
 # Configure Supervisor
-echo "Configuring Supervisor..."
-if [ -f "$PROJECT_BASE_PATH/profiles-rest-api/deploy/supervisor_profiles_api.conf" ]; then
-    cp $PROJECT_BASE_PATH/profiles-rest-api/deploy/supervisor_profiles_api.conf /etc/supervisor/conf.d/profiles_api.conf
+if [ -f "$PROJECT_BASE_PATH/deploy/supervisor_profiles_api.conf" ]; then
+    cp $PROJECT_BASE_PATH/deploy/supervisor_profiles_api.conf /etc/supervisor/conf.d/profiles_api.conf
     supervisorctl reread
     supervisorctl update
     supervisorctl restart profiles_api
@@ -55,9 +48,8 @@ else
 fi
 
 # Configure Nginx
-echo "Configuring Nginx..."
-if [ -f "$PROJECT_BASE_PATH/profiles-rest-api/deploy/nginx_profiles_api.conf" ]; then
-    cp $PROJECT_BASE_PATH/profiles-rest-api/deploy/nginx_profiles_api.conf /etc/nginx/sites-available/profiles_api.conf
+if [ -f "$PROJECT_BASE_PATH/deploy/nginx_profiles_api.conf" ]; then
+    cp $PROJECT_BASE_PATH/deploy/nginx_profiles_api.conf /etc/nginx/sites-available/profiles_api.conf
     rm -f /etc/nginx/sites-enabled/default
     ln -s /etc/nginx/sites-available/profiles_api.conf /etc/nginx/sites-enabled/profiles_api.conf
     nginx -t && systemctl restart nginx.service
@@ -65,9 +57,8 @@ else
     echo "Nginx configuration file not found!"
 fi
 
-# Set ownership and permissions
-echo "Setting permissions..."
-chown -R www-data:www-data $PROJECT_BASE_PATH/profiles-rest-api
-chmod -R 755 $PROJECT_BASE_PATH/profiles-rest-api
+# Set correct permissions
+chown -R www-data:www-data $PROJECT_BASE_PATH
+chmod -R 755 $PROJECT_BASE_PATH
 
 echo "DONE! :)"
