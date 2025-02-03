@@ -6,12 +6,15 @@ set -e
 PROJECT_GIT_URL='https://github.com/wmbogo12/profiles-rest-api.git'
 PROJECT_BASE_PATH='/usr/local/apps/profiles-rest-api'
 
-# Update package list and install dependencies
+# Install Python 3.10 and dependencies
 echo "Installing dependencies..."
 apt-get update
-apt-get install -y python3-dev python3-venv sqlite3 python3-pip supervisor nginx git \
+apt-get install -y python3.10 python3.10-venv python3.10-dev sqlite3 python3-pip supervisor nginx git \
                    build-essential libssl-dev libffi-dev python3-setuptools python3-wheel \
                    libpcre3 libpcre3-dev
+
+# Ensure correct Python version
+PYTHON_BIN="/usr/bin/python3.10"
 
 # Create project directory if it doesn't exist
 if [ ! -d "$PROJECT_BASE_PATH" ]; then
@@ -26,7 +29,7 @@ fi
 # Create and activate virtual environment
 if [ ! -d "$PROJECT_BASE_PATH/env" ]; then
     mkdir -p $PROJECT_BASE_PATH/env
-    python3 -m venv $PROJECT_BASE_PATH/env
+    $PYTHON_BIN -m venv $PROJECT_BASE_PATH/env
 fi
 
 # Upgrade pip and install dependencies
@@ -36,9 +39,12 @@ $PROJECT_BASE_PATH/env/bin/pip install -r $PROJECT_BASE_PATH/requirements.txt
 # Uninstall any existing uwsgi installations before trying a specific version
 $PROJECT_BASE_PATH/env/bin/pip uninstall -y uwsgi
 
-# Install a specific, known working version of uWSGI (version 2.0.20.1)
-echo "Installing uWSGI version 2.0.20.1..."
-$PROJECT_BASE_PATH/env/bin/pip install uwsgi==2.0.20.1
+# Install a specific, known working version of uWSGI (version 2.0.21)
+echo "Installing uWSGI version 2.0.21..."
+$PROJECT_BASE_PATH/env/bin/pip install uwsgi==2.0.21 || {
+    echo "uWSGI installation failed! Installing Gunicorn instead..."
+    $PROJECT_BASE_PATH/env/bin/pip install gunicorn
+}
 
 # Run migrations and collect static files
 cd $PROJECT_BASE_PATH
