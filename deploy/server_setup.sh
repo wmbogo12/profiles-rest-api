@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e  # Exit immediately if a command exits with a non-zero status
+set -e  # Exit on error
 set -o pipefail  # Catch pipeline errors
 
 echo "🚀 Starting server setup..."
@@ -20,29 +20,30 @@ echo "🐍 Installed Python version: $PYTHON_VERSION"
 
 # Install necessary system dependencies
 echo "📦 Installing essential packages..."
-sudo apt-get install -y python3-dev sqlite3 python3-pip git \
+sudo apt-get install -y software-properties-common \
+                        python3-dev sqlite3 python3-pip git \
                         build-essential libssl-dev libffi-dev \
                         python3-setuptools python3-wheel \
                         libpcre3 libpcre3-dev supervisor nginx
 
-# If Python 3.5 is installed, provide an option to upgrade
+# If Python 3.5 is installed, upgrade to Python 3.10
 if [[ "$PYTHON_VERSION" == "3.5"* ]]; then
-    echo "⚠️ Python 3.5 detected (outdated). Upgrading to Python 3.10..."
-    sudo apt-get install -y software-properties-common
+    echo "⚠️ Python 3.5 detected. Upgrading to Python 3.10..."
     sudo add-apt-repository -y ppa:deadsnakes/ppa
     sudo apt-get update -y
     sudo apt-get install -y python3.10 python3.10-venv python3.10-dev
-    PYTHON_VERSION="3.10"
 fi
 
-# Set Python alias if necessary
-if [[ "$(python3 -V 2>&1 | awk '{print $2}')" != "3.10"* ]]; then
+# Ensure Python 3.10 exists before setting alternatives
+if [[ -f "/usr/bin/python3.10" ]]; then
     echo "🔧 Setting Python 3.10 as default..."
     sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
-    sudo update-alternatives --config python3
+    sudo update-alternatives --set python3 /usr/bin/python3.10
+else
+    echo "❌ Python 3.10 installation failed! Falling back to system default."
 fi
 
-# Install pip (latest version for the installed Python)
+# Install pip (latest version for installed Python)
 echo "⬆️ Installing/upgrading pip..."
 python3 -m pip install --upgrade pip setuptools wheel
 
