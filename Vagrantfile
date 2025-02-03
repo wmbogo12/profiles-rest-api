@@ -1,186 +1,53 @@
-#!/usr/bin/env bash
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
 
-set -e  # Exit immediately if a command exits with a non-zero status
-set -o pipefail  # Catch pipeline errors
+# All Vagrant configuration is done below. The "2" in Vagrant.configure
+# configures the configuration version (we support older styles for
+# backwards compatibility). Please don't change it unless you know what
+# you're doing.
+Vagrant.configure("2") do |config|
+  # The most common configuration options are documented and commented below.
+  # For a complete reference, please see the online documentation at
+  # https://docs.vagrantup.com.
 
-# Project repository URL
-PROJECT_GIT_URL='https://github.com/wmbogo12/profiles-rest-api.git'
-PROJECT_BASE_PATH='/usr/local/apps/profiles-rest-api'
+  # Every Vagrant development environment requires a box. You can search for
+  # boxes at https://atlas.hashicorp.com/search.
 
-echo "🔍 Detecting installed Python version..."
-PYTHON_BIN=$(command -v python3 || command -v python)
-if [ -z "$PYTHON_BIN" ]; then
-    echo "❌ Python3 is not installed! Installing now..."
-    apt-get update
-    apt-get install -y python3 python3-venv python3-dev
-    PYTHON_BIN=$(command -v python3 || command -v python)
-fi
-echo "✅ Using Python binary: $PYTHON_BIN"
+  # Specify the base box
+  config.vm.box = "ubuntu/xenial64"
 
-echo "📦 Installing necessary system dependencies..."
-apt-get update
-apt-get install -y python3-venv python3-dev python3-pip sqlite3 supervisor nginx git \
-                   build-essential libssl-dev libffi-dev python3-setuptools python3-wheel \
-                   libpcre3 libpcre3-dev || { echo "❌ Failed to install dependencies"; exit 1; }
+  # Forward port 8080
+  config.vm.network "forwarded_port", host_ip: "127.0.0.1", guest: 8080, host: 8080
 
-# Ensure project directory exists
-if [ ! -d "$PROJECT_BASE_PATH" ]; then
-    echo "📂 Creating project directory..."
-    mkdir -p $PROJECT_BASE_PATH
-    git clone $PROJECT_GIT_URL $PROJECT_BASE_PATH
-else
-    echo "🔄 Project directory exists. Pulling latest changes..."
-    cd $PROJECT_BASE_PATH
-    git pull
-fi
+  # Provision the VM
+  config.vm.provision "shell", inline: <<-SHELL
+    # Update and upgrade the server packages
+    sudo apt-get update
+    sudo apt-get -y upgrade
 
-# Create and activate virtual environment
-if [ ! -d "$PROJECT_BASE_PATH/env" ]; then
-    echo "🐍 Creating Python virtual environment..."
-    mkdir -p $PROJECT_BASE_PATH/env
-    $PYTHON_BIN -m venv $PROJECT_BASE_PATH/env
-fi
+    # Set Ubuntu Language
+    sudo locale-gen en_GB.UTF-8
 
-# Upgrade pip and install dependencies
-echo "⬆️ Upgrading pip and installing requirements..."
-$PROJECT_BASE_PATH/env/bin/pip install --upgrade pip setuptools wheel
-$PROJECT_BASE_PATH/env/bin/pip install -r $PROJECT_BASE_PATH/requirements.txt || {
-    echo "❌ Failed to install Python dependencies";
-    exit 1;
-}
+    # Install Python3, SQLite, and pip3
+    sudo apt-get install -y python3-dev sqlite python3-pip
 
-# Uninstall any existing uWSGI versions before installing a stable one
-echo "🚀 Installing uWSGI..."
-$PROJECT_BASE_PATH/env/bin/pip uninstall -y uwsgi || true
-if ! $PROJECT_BASE_PATH/env/bin/pip install uwsgi==2.0.21; then
-    echo "⚠️ uWSGI installation failed! Installing Gunicorn as fallback..."
-    $PROJECT_BASE_PATH/env/bin/pip install gunicorn
-fi
+    # Install pip 20.3.4 (the last version compatible with Python 3.5)
+    sudo python3 -m pip install pip==20.3.4
 
-# Run Django migrations and collect static files
-echo "⚙️ Running database migrations and collecting static files..."
-cd $PROJECT_BASE_PATH
-$PROJECT_BASE_PATH/env/bin/python manage.py migrate || { echo "❌ Migration failed"; exit 1; }
-$PROJECT_BASE_PATH/env/bin/python manage.py collectstatic --noinput || echo "⚠️ Static file collection failed"
+    # Install pbr (missing dependency for virtualenvwrapper)
+    sudo python3 -m pip install pbr
 
-# Configure Supervisor
-if [ -f "$PROJECT_BASE_PATH/deploy/supervisor_profiles_api.conf" ]; then
-    echo "🔧 Configuring Supervisor..."
-    cp $PROJECT_BASE_PATH/deploy/supervisor_profiles_api.conf /etc/supervisor/conf.d/profiles_api.conf
-    supervisorctl reread
-    supervisorctl update
-    supervisorctl restart profiles_api || echo "⚠️ Failed to restart Supervisor process"
-else
-    echo "⚠️ Supervisor configuration file not found!"
-fi
+    # Install virtualenvwrapper (this will install the latest compatible version)
+    sudo python3 -m pip install virtualenvwrapper
 
-# Configure Nginx
-if [ -f "$PROJECT_BASE_PATH/deploy/nginx_profiles_api.conf" ]; then
-    echo "🌐 Configuring Nginx..."
-    cp $PROJECT_BASE_PATH/deploy/nginx_profiles_api.conf /etc/nginx/sites-available/profiles_api.conf
-    rm -f /etc/nginx/sites-enabled/default
-    ln -s /etc/nginx/sites-available/profiles_api.conf /etc/nginx/sites-enabled/profiles_api.conf
-    nginx -t && systemctl restart nginx.service || echo "⚠️ Nginx restart failed"
-else
-    echo "⚠️ Nginx configuration file not found!"
-fi
-
-# Set correct permissions
-echo "🔑 Setting correct permissions..."
-chown -R www-data:www-data $PROJECT_BASE_PATH
-chmod -R 755 $PROJECT_BASE_PATH
-
-echo "✅ DEPLOYMENT COMPLETED SUCCESSFULLY! 🚀"
-#!/usr/bin/env bash
-
-set -e  # Exit immediately if a command exits with a non-zero status
-set -o pipefail  # Catch pipeline errors
-
-# Project repository URL
-PROJECT_GIT_URL='https://github.com/wmbogo12/profiles-rest-api.git'
-PROJECT_BASE_PATH='/usr/local/apps/profiles-rest-api'
-
-echo "🔍 Detecting installed Python version..."
-PYTHON_BIN=$(command -v python3 || command -v python)
-if [ -z "$PYTHON_BIN" ]; then
-    echo "❌ Python3 is not installed! Installing now..."
-    apt-get update
-    apt-get install -y python3 python3-venv python3-dev
-    PYTHON_BIN=$(command -v python3 || command -v python)
-fi
-echo "✅ Using Python binary: $PYTHON_BIN"
-
-echo "📦 Installing necessary system dependencies..."
-apt-get update
-apt-get install -y python3-venv python3-dev python3-pip sqlite3 supervisor nginx git \
-                   build-essential libssl-dev libffi-dev python3-setuptools python3-wheel \
-                   libpcre3 libpcre3-dev || { echo "❌ Failed to install dependencies"; exit 1; }
-
-# Ensure project directory exists
-if [ ! -d "$PROJECT_BASE_PATH" ]; then
-    echo "📂 Creating project directory..."
-    mkdir -p $PROJECT_BASE_PATH
-    git clone $PROJECT_GIT_URL $PROJECT_BASE_PATH
-else
-    echo "🔄 Project directory exists. Pulling latest changes..."
-    cd $PROJECT_BASE_PATH
-    git pull
-fi
-
-# Create and activate virtual environment
-if [ ! -d "$PROJECT_BASE_PATH/env" ]; then
-    echo "🐍 Creating Python virtual environment..."
-    mkdir -p $PROJECT_BASE_PATH/env
-    $PYTHON_BIN -m venv $PROJECT_BASE_PATH/env
-fi
-
-# Upgrade pip and install dependencies
-echo "⬆️ Upgrading pip and installing requirements..."
-$PROJECT_BASE_PATH/env/bin/pip install --upgrade pip setuptools wheel
-$PROJECT_BASE_PATH/env/bin/pip install -r $PROJECT_BASE_PATH/requirements.txt || {
-    echo "❌ Failed to install Python dependencies";
-    exit 1;
-}
-
-# Uninstall any existing uWSGI versions before installing a stable one
-echo "🚀 Installing uWSGI..."
-$PROJECT_BASE_PATH/env/bin/pip uninstall -y uwsgi || true
-if ! $PROJECT_BASE_PATH/env/bin/pip install uwsgi==2.0.21; then
-    echo "⚠️ uWSGI installation failed! Installing Gunicorn as fallback..."
-    $PROJECT_BASE_PATH/env/bin/pip install gunicorn
-fi
-
-# Run Django migrations and collect static files
-echo "⚙️ Running database migrations and collecting static files..."
-cd $PROJECT_BASE_PATH
-$PROJECT_BASE_PATH/env/bin/python manage.py migrate || { echo "❌ Migration failed"; exit 1; }
-$PROJECT_BASE_PATH/env/bin/python manage.py collectstatic --noinput || echo "⚠️ Static file collection failed"
-
-# Configure Supervisor
-if [ -f "$PROJECT_BASE_PATH/deploy/supervisor_profiles_api.conf" ]; then
-    echo "🔧 Configuring Supervisor..."
-    cp $PROJECT_BASE_PATH/deploy/supervisor_profiles_api.conf /etc/supervisor/conf.d/profiles_api.conf
-    supervisorctl reread
-    supervisorctl update
-    supervisorctl restart profiles_api || echo "⚠️ Failed to restart Supervisor process"
-else
-    echo "⚠️ Supervisor configuration file not found!"
-fi
-
-# Configure Nginx
-if [ -f "$PROJECT_BASE_PATH/deploy/nginx_profiles_api.conf" ]; then
-    echo "🌐 Configuring Nginx..."
-    cp $PROJECT_BASE_PATH/deploy/nginx_profiles_api.conf /etc/nginx/sites-available/profiles_api.conf
-    rm -f /etc/nginx/sites-enabled/default
-    ln -s /etc/nginx/sites-available/profiles_api.conf /etc/nginx/sites-enabled/profiles_api.conf
-    nginx -t && systemctl restart nginx.service || echo "⚠️ Nginx restart failed"
-else
-    echo "⚠️ Nginx configuration file not found!"
-fi
-
-# Set correct permissions
-echo "🔑 Setting correct permissions..."
-chown -R www-data:www-data $PROJECT_BASE_PATH
-chmod -R 755 $PROJECT_BASE_PATH
-
-echo "✅ DEPLOYMENT COMPLETED SUCCESSFULLY! 🚀"
+    # Add virtualenvwrapper configuration to bashrc if not already added
+    if ! grep -q VIRTUALENV_ALREADY_ADDED /home/vagrant/.bashrc; then
+      cat <<EOF >> /home/vagrant/.bashrc
+# VIRTUALENV_ALREADY_ADDED
+export WORKON_HOME=~/.virtualenvs
+export PROJECT_HOME=/vagrant
+source $(which virtualenvwrapper.sh)
+EOF
+    fi
+  SHELL
+end
