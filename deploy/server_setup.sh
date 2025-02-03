@@ -6,15 +6,23 @@ set -e
 PROJECT_GIT_URL='https://github.com/wmbogo12/profiles-rest-api.git'
 PROJECT_BASE_PATH='/usr/local/apps/profiles-rest-api'
 
-# Install Python 3.10 and dependencies
+# Detect the installed Python version
+PYTHON_BIN=$(which python3)
+if [ -z "$PYTHON_BIN" ]; then
+    echo "Python3 is not installed. Installing it now..."
+    apt-get update
+    apt-get install -y python3 python3-venv python3-dev
+    PYTHON_BIN=$(which python3)
+fi
+
+echo "Using Python binary: $PYTHON_BIN"
+
+# Install necessary system packages
 echo "Installing dependencies..."
 apt-get update
-apt-get install -y python3.10 python3.10-venv python3.10-dev sqlite3 python3-pip supervisor nginx git \
+apt-get install -y python3-venv python3-dev sqlite3 python3-pip supervisor nginx git \
                    build-essential libssl-dev libffi-dev python3-setuptools python3-wheel \
                    libpcre3 libpcre3-dev
-
-# Ensure correct Python version
-PYTHON_BIN="/usr/bin/python3.10"
 
 # Create project directory if it doesn't exist
 if [ ! -d "$PROJECT_BASE_PATH" ]; then
@@ -41,10 +49,10 @@ $PROJECT_BASE_PATH/env/bin/pip uninstall -y uwsgi
 
 # Install a specific, known working version of uWSGI (version 2.0.21)
 echo "Installing uWSGI version 2.0.21..."
-$PROJECT_BASE_PATH/env/bin/pip install uwsgi==2.0.21 || {
+if ! $PROJECT_BASE_PATH/env/bin/pip install uwsgi==2.0.21; then
     echo "uWSGI installation failed! Installing Gunicorn instead..."
     $PROJECT_BASE_PATH/env/bin/pip install gunicorn
-}
+fi
 
 # Run migrations and collect static files
 cd $PROJECT_BASE_PATH
