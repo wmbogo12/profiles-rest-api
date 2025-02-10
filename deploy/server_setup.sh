@@ -1,78 +1,43 @@
 #!/usr/bin/env bash
 
-set -e  # Exit on error
-set -o pipefail  # Catch pipeline errors
+set -e
 
-echo "🚀 Starting server setup..."
+# TODO: Set to URL of git repo.
+PROJECT_GIT_URL='https://github.com/wmbogo12/profiles-rest-api.git'
 
-# Update and upgrade system packages
-echo "📦 Updating package list..."
-sudo apt-get update -y
-sudo apt-get upgrade -y
+PROJECT_BASE_PATH='/usr/local/apps/profiles-rest-api'
 
-# Ensure the system has locales set correctly
-echo "🌍 Setting up locale..."
-sudo locale-gen en_GB.UTF-8
+echo "Installing dependencies..."
+apt-get update
+apt-get install -y python3-dev python3-venv sqlite python-pip supervisor nginx git
 
-# Check installed Python version
-PYTHON_VERSION=$(python3 -V 2>&1 | awk '{print $2}')
-echo "🐍 Installed Python version: $PYTHON_VERSION"
+# Create project directory
+mkdir -p $PROJECT_BASE_PATH
+git clone $PROJECT_GIT_URL $PROJECT_BASE_PATH
 
-# Install necessary system dependencies
-echo "📦 Installing essential packages..."
-sudo apt-get install -y software-properties-common \
-                        python3-dev sqlite3 python3-pip git \
-                        build-essential libssl-dev libffi-dev \
-                        python3-setuptools python3-wheel \
-                        libpcre3 libpcre3-dev supervisor nginx
+# Create virtual environment
+mkdir -p $PROJECT_BASE_PATH/env
+python3 -m venv $PROJECT_BASE_PATH/env
 
-# If Python 3.5 is installed, upgrade to Python 3.10
-if [[ "$PYTHON_VERSION" == "3.5"* ]]; then
-    echo "⚠️ Python 3.5 detected. Upgrading to Python 3.10..."
-    sudo add-apt-repository -y ppa:deadsnakes/ppa
-    sudo apt-get update -y
-    sudo apt-get install -y python3.10 python3.10-venv python3.10-dev
-fi
+# Install python packages
+$PROJECT_BASE_PATH/env/bin/pip install -r $PROJECT_BASE_PATH/requirements.txt
+$PROJECT_BASE_PATH/env/bin/pip install uwsgi==2.0.18
 
-# Ensure Python 3.10 exists before setting alternatives
-if [[ -f "/usr/bin/python3.10" ]]; then
-    echo "🔧 Setting Python 3.10 as default..."
-    sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
-    sudo update-alternatives --set python3 /usr/bin/python3.10
-else
-    echo "❌ Python 3.10 installation failed! Falling back to system default."
-fi
+# Run migrations and collectstatic
+cd $PROJECT_BASE_PATH
+$PROJECT_BASE_PATH/env/bin/python manage.py migrate
+$PROJECT_BASE_PATH/env/bin/python manage.py collectstatic --noinput
 
-# Install pip (latest version for installed Python)
-echo "⬆️ Installing/upgrading pip..."
-python3 -m pip install --upgrade pip setuptools wheel
+# Configure supervisor
+cp $PROJECT_BASE_PATH/deploy/supervisor_profiles_api.conf /etc/supervisor/conf.d/profiles_api.conf
+supervisorctl reread
+supervisorctl update
+supervisorctl restart profiles_api
 
-# Install Virtualenvwrapper
-echo "🐍 Installing Virtualenvwrapper..."
-python3 -m pip install virtualenvwrapper
+# Configure nginx
+cp $PROJECT_BASE_PATH/deploy/nginx_profiles_api.conf /etc/nginx/sites-available/profiles_api.conf
+rm /etc/nginx/sites-enabled/default
+ln -s /etc/nginx/sites-available/profiles_api.conf /etc/nginx/sites-enabled/profiles_api.conf
+systemctl restart nginx.service
 
-# Add Virtualenvwrapper configuration to bashrc if not already added
-if ! grep -q "VIRTUALENV_ALREADY_ADDED" /home/vagrant/.bashrc; then
-    echo "🔧 Configuring Virtualenvwrapper..."
-    cat <<EOF >> /home/vagrant/.bashrc
-# VIRTUALENV_ALREADY_ADDED
-export WORKON_HOME=~/.virtualenvs
-export PROJECT_HOME=/vagrant
-source \$(which virtualenvwrapper.sh)
-EOF
-fi
-
-# Reload bashrc
-source /home/vagrant/.bashrc
-
-# Configure Supervisor
-echo "🔧 Setting up Supervisor..."
-sudo systemctl enable supervisor
-sudo systemctl start supervisor
-
-# Configure Nginx
-echo "🌐 Configuring Nginx..."
-sudo systemctl enable nginx
-sudo systemctl restart nginx
-
-echo "✅ Server setup completed successfully! 🚀"
+echo "DONE! :)"
