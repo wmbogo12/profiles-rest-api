@@ -12,7 +12,7 @@ apt-get update && apt-get upgrade -y
 echo "Installing dependencies..."
 apt-get install -y libpcre3-dev libssl-dev build-essential python3-dev python3-pip python3-setuptools virtualenv sqlite3 supervisor nginx git
 
-# Remove uWSGI if it exists (since we're switching to Gunicorn)
+# Remove uWSGI (Since we are switching to Gunicorn)
 echo "Removing uWSGI..."
 apt-get remove --purge -y uwsgi uwsgi-plugin-python3 || true
 rm -rf /usr/local/lib/python*/dist-packages/uWSGI* || true
@@ -51,7 +51,6 @@ $PROJECT_BASE_PATH/env/bin/python manage.py collectstatic --noinput
 # Configure Supervisor for Gunicorn
 echo "Configuring Supervisor..."
 cat <<EOF > /etc/supervisor/conf.d/profiles_api.conf
-
 [program:profiles_api]
 command=$PROJECT_BASE_PATH/env/bin/gunicorn --workers 3 --bind unix:$PROJECT_BASE_PATH/profiles_api.sock profiles_project.wsgi:application
 directory=$PROJECT_BASE_PATH
