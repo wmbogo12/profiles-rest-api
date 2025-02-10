@@ -10,7 +10,18 @@ echo "Updating system packages..."
 apt-get update && apt-get upgrade -y
 
 echo "Installing dependencies..."
-apt-get install -y python3-dev python3-pip virtualenv sqlite3 supervisor nginx git libssl-dev build-essential python3-setuptools libpcre3-dev
+apt-get install -y python3-dev python3-pip virtualenv sqlite3 supervisor nginx git \
+                   libssl-dev build-essential python3-setuptools libpcre3-dev
+
+# Remove any broken uWSGI installation
+echo "Removing old/broken uWSGI versions..."
+apt-get remove --purge -y uwsgi uwsgi-plugin-python3 || true
+rm -rf /usr/local/lib/python*/dist-packages/uWSGI*
+
+# Install uWSGI manually to fix build errors
+echo "Installing uWSGI correctly..."
+pip install --no-cache-dir setuptools wheel
+pip install --no-cache-dir uwsgi
 
 # Create project directory if not exists
 mkdir -p $PROJECT_BASE_PATH
@@ -30,9 +41,6 @@ source $PROJECT_BASE_PATH/env/bin/activate
 pip install --upgrade pip
 pip install -r $PROJECT_BASE_PATH/requirements.txt
 deactivate  # Exit virtual environment
-
-# Install uWSGI using apt instead of pip (fixes build issues)
-apt-get install -y uwsgi uwsgi-plugin-python3
 
 # Run migrations and collect static files
 cd $PROJECT_BASE_PATH
