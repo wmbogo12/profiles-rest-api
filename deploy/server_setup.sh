@@ -51,6 +51,7 @@ $PROJECT_BASE_PATH/env/bin/python manage.py collectstatic --noinput
 # Configure Supervisor for Gunicorn
 echo "Configuring Supervisor..."
 cat <<EOF > /etc/supervisor/conf.d/profiles_api.conf
+
 [program:profiles_api]
 command=$PROJECT_BASE_PATH/env/bin/gunicorn --workers 3 --bind unix:$PROJECT_BASE_PATH/profiles_api.sock profiles_project.wsgi:application
 directory=$PROJECT_BASE_PATH
