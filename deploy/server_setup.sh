@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e  # Exit on error
+set -e  # Exit script on any error
 
 # TODO: Set to URL of git repo.
 PROJECT_GIT_URL='https://github.com/wmbogo12/profiles-rest-api.git'
@@ -10,7 +10,7 @@ echo "Updating system packages..."
 apt-get update && apt-get upgrade -y
 
 echo "Installing dependencies..."
-apt-get install -y python3-dev python3-pip virtualenv sqlite3 supervisor nginx git libssl-dev build-essential
+apt-get install -y python3-dev python3-pip virtualenv sqlite3 supervisor nginx git libssl-dev build-essential python3-setuptools libpcre3-dev
 
 # Create project directory if not exists
 mkdir -p $PROJECT_BASE_PATH
@@ -50,5 +50,8 @@ cp $PROJECT_BASE_PATH/deploy/nginx_profiles_api.conf /etc/nginx/sites-available/
 rm -f /etc/nginx/sites-enabled/default
 ln -sf /etc/nginx/sites-available/profiles_api.conf /etc/nginx/sites-enabled/profiles_api.conf
 systemctl restart nginx.service
+
+# Enable services to start on boot
+systemctl enable nginx supervisor
 
 echo "🚀 Deployment completed successfully!"
