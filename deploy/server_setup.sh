@@ -10,7 +10,7 @@ echo "Updating system packages..."
 apt-get update && apt-get upgrade -y
 
 echo "Installing dependencies..."
-apt-get install -y python3-dev python3-venv python3-pip sqlite3 supervisor nginx git
+apt-get install -y python3-dev python3-pip virtualenv sqlite3 supervisor nginx git libssl-dev build-essential
 
 # Create project directory if not exists
 mkdir -p $PROJECT_BASE_PATH
@@ -22,15 +22,17 @@ fi
 
 # Create virtual environment if not exists
 if [ ! -d "$PROJECT_BASE_PATH/env" ]; then
-    python3 -m venv $PROJECT_BASE_PATH/env
+    virtualenv -p python3 $PROJECT_BASE_PATH/env
 fi
 
 # Activate virtual environment and install Python packages
 source $PROJECT_BASE_PATH/env/bin/activate
 pip install --upgrade pip
 pip install -r $PROJECT_BASE_PATH/requirements.txt
-pip install uwsgi==2.0.18
 deactivate  # Exit virtual environment
+
+# Install uWSGI using apt instead of pip (fixes build issues)
+apt-get install -y uwsgi uwsgi-plugin-python3
 
 # Run migrations and collect static files
 cd $PROJECT_BASE_PATH
